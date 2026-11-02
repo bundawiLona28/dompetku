@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>DompetKu</title>
+  <meta name="description" content="Catat pemasukan & pengeluaran langsung ke Google Sheets.">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="DompetKu">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ===================== LAYAR SETUP ===================== -->
+  <section id="setup" class="setup" hidden>
+    <div class="setup-glow"></div>
+    <div class="setup-inner">
+      <img src="icon-192.png" alt="" class="setup-logo">
+      <h1>DompetKu</h1>
+      <p class="setup-sub">Catat keuangan dari HP, langsung masuk ke Google Sheets-mu.</p>
+      <form id="setupForm" class="card setup-card" novalidate>
+        <label class="field">
+          <span>URL Web App</span>
+          <input id="setupUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+        </label>
+        <label class="field">
+          <span>PIN</span>
+          <input id="setupPin" type="password" autocomplete="current-password" placeholder="PIN yang kamu tulis di Apps Script">
+        </label>
+        <p id="setupErr" class="form-err" role="alert"></p>
+        <button id="setupBtn" class="btn btn-primary btn-block" type="submit">Hubungkan</button>
+      </form>
+      <button id="demoBtn" class="btn-link" type="button">Coba dulu dengan data contoh</button>
+    </div>
+  </section>
+
+  <!-- ===================== APLIKASI ===================== -->
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <div>
+        <p class="hello" id="hello">Halo 👋</p>
+        <p class="today" id="todayLabel"></p>
+      </div>
+      <div class="topbar-actions">
+        <button id="syncPill" class="sync-pill" type="button" aria-live="polite">
+          <span class="dot"></span><span class="txt">Memuat…</span>
+        </button>
+        <button id="refreshBtn" class="icon-btn" type="button" aria-label="Muat ulang data">
+          <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <main id="views">
+      <!-- BERANDA -->
+      <section class="view active" id="v-beranda" aria-label="Beranda">
+        <div class="period-bar" data-period-bar></div>
+        <div id="berandaBody"></div>
+      </section>
+
+      <!-- RIWAYAT -->
+      <section class="view" id="v-riwayat" aria-label="Riwayat">
+        <h2 class="view-title">Riwayat</h2>
+        <div class="search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input id="q" type="search" placeholder="Cari catatan, kategori, nominal…" autocomplete="off">
+        </div>
+        <div class="seg" id="fJenis" role="tablist">
+          <button class="on" data-v="semua">Semua</button>
+          <button data-v="masuk">Pemasukan</button>
+          <button data-v="keluar">Pengeluaran</button>
+        </div>
+        <div class="filter-row">
+          <select id="fKat" aria-label="Filter kategori"><option value="">Semua kategori</option></select>
+          <select id="fWaktu" aria-label="Filter tanggal">
+            <option value="semua">Semua waktu</option>
+            <option value="hari">Hari ini</option>
+            <option value="minggu">Minggu ini</option>
+            <option value="bulan">Bulan ini</option>
+            <option value="bulanlalu">Bulan lalu</option>
+            <option value="custom">Pilih tanggal…</option>
+          </select>
+        </div>
+        <div class="filter-row" id="fRange" hidden>
+          <input type="date" id="fDari" aria-label="Dari tanggal">
+          <input type="date" id="fSampai" aria-label="Sampai tanggal">
+        </div>
+        <div id="riwayatSummary" class="hist-summary"></div>
+        <div id="riwayatList"></div>
+      </section>
+
+      <!-- ANALISIS -->
+      <section class="view" id="v-analisis" aria-label="Analisis">
+        <h2 class="view-title">Analisis</h2>
+        <div class="period-bar" data-period-bar></div>
+        <div id="analisisBody"></div>
+      </section>
+
+      <!-- PENGATURAN -->
+      <section class="view" id="v-pengaturan" aria-label="Pengaturan">
+        <h2 class="view-title">Pengaturan</h2>
+        <div id="pengaturanBody"></div>
+      </section>
+    </main>
+
+    <!-- NAVIGASI BAWAH -->
+    <nav class="bottom-nav" aria-label="Navigasi utama">
+      <button class="nav-btn on" data-view="beranda">
+        <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" /></svg>
+        <span>Beranda</span>
+      </button>
+      <button class="nav-btn" data-view="riwayat">
+        <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" /></svg>
+        <span>Riwayat</span>
+      </button>
+      <button class="fab" id="fab" type="button" aria-label="Tambah transaksi">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+      </button>
+      <button class="nav-btn" data-view="analisis">
+        <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
+        <span>Analisis</span>
+      </button>
+      <button class="nav-btn" data-view="pengaturan">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+        <span>Atur</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ===================== BOTTOM SHEET: FORM ===================== -->
+  <div class="scrim" id="scrim" hidden></div>
+
+  <section class="sheet" id="formSheet" role="dialog" aria-modal="true" aria-labelledby="formTitle" hidden>
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h3 id="formTitle">Tambah Transaksi</h3>
+      <button class="icon-btn" data-close aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
+    </div>
+    <form id="txForm" novalidate>
+      <div class="seg seg-type" id="tJenis">
+        <button type="button" data-v="keluar" class="on">Pengeluaran</button>
+        <button type="button" data-v="masuk">Pemasukan</button>
+      </div>
+      <label class="amount" id="amountWrap">
+        <span class="rp">Rp</span>
+        <input id="tNominal" inputmode="numeric" autocomplete="off" placeholder="0" aria-label="Nominal">
+      </label>
+      <div class="quick" id="quickAmt">
+        <button type="button" data-a="10000">+10rb</button>
+        <button type="button" data-a="20000">+20rb</button>
+        <button type="button" data-a="50000">+50rb</button>
+        <button type="button" data-a="100000">+100rb</button>
+        <button type="button" data-a="0" class="clear">Hapus</button>
+      </div>
+      <p class="form-err" id="txErr" role="alert"></p>
+
+      <p class="lbl">Kategori</p>
+      <div class="cats" id="tKat"></div>
+
+      <p class="lbl">Metode</p>
+      <div class="chips" id="tMetode"></div>
+
+      <div class="row2">
+        <label class="field">
+          <span>Tanggal</span>
+          <input type="date" id="tTanggal" required>
+        </label>
+        <div class="date-quick">
+          <button type="button" data-d="0">Hari ini</button>
+          <button type="button" data-d="-1">Kemarin</button>
+        </div>
+      </div>
+      <label class="field">
+        <span>Catatan <em>(opsional)</em></span>
+        <input id="tCatatan" maxlength="200" placeholder="mis. makan siang di kantin" autocomplete="off">
+      </label>
+      <button class="btn btn-primary btn-block btn-save" id="saveBtn" type="submit">Simpan</button>
+    </form>
+  </section>
+
+  <!-- ===================== BOTTOM SHEET: DETAIL ===================== -->
+  <section class="sheet" id="detailSheet" role="dialog" aria-modal="true" hidden>
+    <div class="grab"></div>
+    <div id="detailBody"></div>
+  </section>
+
+  <!-- ===================== BOTTOM SHEET: PERIODE CUSTOM ===================== -->
+  <section class="sheet" id="periodSheet" role="dialog" aria-modal="true" aria-labelledby="periodTitle" hidden>
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h3 id="periodTitle">Pilih Periode</h3>
+      <button class="icon-btn" data-close aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
+    </div>
+    <div class="row2 period-range">
+      <label class="field"><span>Dari</span><input type="date" id="pDari"></label>
+      <label class="field"><span>Sampai</span><input type="date" id="pSampai"></label>
+    </div>
+    <div class="chips" id="pPreset">
+      <button type="button" data-p="7">7 hari</button>
+      <button type="button" data-p="30">30 hari</button>
+      <button type="button" data-p="bulanlalu">Bulan lalu</button>
+      <button type="button" data-p="tahun">Tahun ini</button>
+    </div>
+    <p class="form-err" id="pErr" role="alert"></p>
+    <button class="btn btn-primary btn-block" id="pApply" type="button">Terapkan</button>
+  </section>
+
+  <!-- ===================== DIALOG KONFIRMASI ===================== -->
+  <div class="dialog-wrap" id="confirm" hidden>
+    <div class="dialog card" role="alertdialog" aria-modal="true" aria-labelledby="cTitle" aria-describedby="cMsg">
+      <div class="dialog-icon">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>
+      </div>
+      <h3 id="cTitle">Hapus transaksi?</h3>
+      <p id="cMsg"></p>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost" id="cNo" type="button">Batal</button>
+        <button class="btn btn-danger" id="cYes" type="button">Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="charts.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
